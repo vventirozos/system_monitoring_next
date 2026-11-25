@@ -160,3 +160,7 @@ Lines cut short by a crash only give a warning. `--pivot` fails when a key appea
 NULL is empty unless `--null TEXT`.
 `list` and `errors` without target cover the global logdir; give the path for a cluster with
 its own logdir. On RHEL 8 (sysstat 11.7) the first avg-cpu row after a start of iostat is all zeros.
+
+## License
+
+PostgreSQL License, see [LICENSE](LICENSE).
