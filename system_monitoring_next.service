@@ -1,0 +1,36 @@
+[Unit]
+Description=system_monitoring_next data collector
+# Deliberately independent of PostgreSQL units: it must never hold them up.
+# No RequiresMountsFor: when the mount fails or goes away systemd would stop this
+# service and never start it again. Without its logdir the daemon exits and is
+# restarted until it is there: make logdir a directory on the mounted filesystem.
+After=network.target local-fs.target
+# never give up for good
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/python3 /opt/system_monitoring_next/system_monitoring_next.py /etc/system_monitoring_next.cfg
+Restart=always
+RestartSec=30
+TimeoutStopSec=20
+# The daemon stops what it started. A psql that is still connecting must be left
+# alone, else its backend would be orphaned and the next start would add one.
+KillMode=process
+OOMPolicy=continue
+
+# Hard ceilings, enforced by the kernel on the daemon and everything it starts
+MemoryMax=1G
+TasksMax=128
+CPUQuota=100%
+CPUWeight=20
+IOWeight=20
+Nice=10
+OOMScoreAdjust=1000
+LimitCORE=0
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

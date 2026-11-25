@@ -1,0 +1,7 @@
+export PATH=/usr/lib/postgresql/17/bin:$PATH; umask 027
+A=/app/system_monitoring_next.py
+echo "== -d mode"; rm -rf /tmp/flogs; mkdir /tmp/flogs; python3 $A -d /tmp/f.cfg; sleep 4; P=$(cat /tmp/flogs/pidfile); ps -o pid,ppid,sid,tty,args -p $P; python3 $A -d /tmp/f.cfg; echo "second rc=$?"
+echo "== TERM while backend stuck"; B=$(psql -XAtqc "select pid from pg_stat_activity where application_name like 'sysmon%'"); kill -STOP $B; sleep 7; time kill $P; while kill -0 $P 2>/dev/null; do sleep .2; done; kill -CONT $B; sleep 3; tail -3 /tmp/flogs/system_monitoring_next.log; echo "backends $(psql -XAtqc "select count(*) from pg_stat_activity where application_name like 'sysmon%'") psql $(pgrep -c -x psql)"; ls /tmp/flogs
+echo "== no psql"; sed 's#/usr/lib/postgresql/17/bin:##' /tmp/f.cfg >/tmp/np.cfg; sed -i 's#^\[postgres\]#[postgres]\npsql=/nope/psql#' /tmp/np.cfg; timeout 12 python3 $A --once /tmp/np.cfg 2>&1 | grep -v INFO | head -6
+echo "== torn + corrupt"; F=$(ls /tmp/flogs/os/*/*/*/loadavg*); printf '2026-11-25T13:00:00.000+0000\t1.1\t0.5 torn' >> $F; timeout 4 python3 $A /tmp/f.cfg 2>/dev/null; python3 -B /app/sysmon_export.py -l /tmp/flogs export os loadavg | tail -2; gzip -k $F; head -c 300 $F.gz > $F.x; D=$(dirname $F); mv $F.x $D/loadavg-2026-11-25-11.tsv.gz; rm $F.gz; python3 -B /app/sysmon_export.py -l /tmp/flogs export os loadavg | wc -l
+echo "== signal/pipe"; python3 -B /app/sysmon_export.py -l /tmp/flogs export os loadavg | head -1
