@@ -14,7 +14,7 @@ psql -Xq demo_production -f /app/dba_schema.v3.sql >/dev/null 2>&1
 psql -q demo_production <<'Q'
 create table t(i int primary key); create table ext(i int);
 Q
-sed -e 's#/data/system_monitoring_next_logs#/tmp/logs#' -e 's#^interval = 60#interval = 10#' -e 's#min_free_space = 2GB#min_free_space = 100MB#' /app/config.cfg > /tmp/c.cfg
+sed -e 's#/data/system_monitoring_next_logs#/tmp/logs#' -e 's#^interval = 60#interval = 10#' -e 's#min_free_space = 2GB#min_free_space = 100MB#' /app/config.sample > /tmp/c.cfg
 sed -i 's#^exec     = cd /proc/pressure.*#exec = echo a b; echo 1 2#' /tmp/c.cfg   # kernel of the test VM has no PSI
 cat >> /tmp/c.cfg <<'C'
 [cluster second]

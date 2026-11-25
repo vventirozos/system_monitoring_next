@@ -7,7 +7,7 @@ library and `psql` 12+; nothing to install. Linux.
 |---|---|
 | `system_monitoring_next.py` | the daemon |
 | `sysmon_export.py` | reads the logs, exports csv / tsv / json / table |
-| `config.cfg` | complete config: the existing checks, the dba views, and more |
+| `config.sample` | sample config, copy it to `config.cfg`: complete config: the existing checks, the dba views, and more |
 | `system_monitoring_next.service` | systemd unit with kernel enforced ceilings |
 | `dba_schema.v3.sql` | the dba views some checks use (lock views fixed) |
 | `tests/` | unit tests, and fault injection scripts (throwaway container ONLY) |
@@ -15,6 +15,7 @@ library and `psql` 12+; nothing to install. Linux.
 ## Run
 
     mkdir /data/system_monitoring_next_logs          # owned by the monitoring user
+    cp config.sample config.cfg                      # then set database, PATH and logdir
     ./system_monitoring_next.py -t     config.cfg    # validate, shows warnings
     ./system_monitoring_next.py --once config.cfg    # run each check once, exit 1 if any fails or cannot be logged
     ./system_monitoring_next.py -d     config.cfg    # daemon (systemd: without -d)

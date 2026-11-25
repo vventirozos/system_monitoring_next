@@ -101,7 +101,7 @@ class Daemon(unittest.TestCase):
 
     def test_shipped_config(self):
         here = os.path.dirname(os.path.abspath(__file__))
-        self.assertEqual(len(sm.Config(os.path.join(here, "..", "config.cfg")).checks), 62)
+        self.assertEqual(len(sm.Config(os.path.join(here, "..", "config.sample")).checks), 62)
 
 
 class Export(unittest.TestCase):
