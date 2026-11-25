@@ -12,19 +12,75 @@ library and `psql` 12+; nothing to install. Linux.
 | `dba_schema.v3.sql` | the dba views some checks use (lock views fixed) |
 | `tests/` | unit tests, and fault injection scripts (throwaway container ONLY) |
 
-## Run
+## Install
 
-    mkdir /data/system_monitoring_next_logs          # owned by the monitoring user
-    cp config.sample config.cfg                      # then set database, PATH and logdir
-    ./system_monitoring_next.py -t     config.cfg    # validate, shows warnings
-    ./system_monitoring_next.py --once config.cfg    # run each check once, exit 1 if any fails or cannot be logged
-    ./system_monitoring_next.py -d     config.cfg    # daemon (systemd: without -d)
+As root, from a checkout. Assumes that PostgreSQL runs as OS user `postgres`; for another
+user change `User=` and `Group=` in the unit, and the owners below.
 
-systemd: copy the directory to `/opt/system_monitoring_next`, the config to
-`/etc/system_monitoring_next.cfg`, the unit to `/etc/systemd/system/`, and adjust
-`User`. Make logdir a directory on the mounted filesystem (not the mount point): while it
-is missing the daemon exits and systemd retries every 30s. Config changes need a restart; SIGHUP is ignored.
-One daemon per logdir and per cluster logdir (enforced).
+Packages, Ubuntu / Debian:
+
+    apt update && apt install -y python3 sysstat procps
+
+Rocky / RHEL:
+
+    dnf install -y python3 sysstat procps-ng
+
+Program, config and log directory (mount `/data` first if it is a filesystem of its own, and
+keep logdir a directory on it, not the mount point):
+
+    mkdir -p /opt/system_monitoring_next
+    cp system_monitoring_next.py sysmon_export.py /opt/system_monitoring_next/
+    chown -R root:root /opt/system_monitoring_next
+    chmod 755 /opt/system_monitoring_next /opt/system_monitoring_next/*.py
+    cp config.sample /etc/system_monitoring_next.cfg
+    chown root:postgres /etc/system_monitoring_next.cfg
+    chmod 640 /etc/system_monitoring_next.cfg
+    mkdir -p /data/system_monitoring_next_logs
+    chown postgres:postgres /data/system_monitoring_next_logs
+    chmod 750 /data/system_monitoring_next_logs
+
+Edit `/etc/system_monitoring_next.cfg`: `database`, `port`, `logdir`, and `PATH` (where psql is).
+
+Database objects. The `dba` checks need the schema, the `pgss_*` checks need `pg_stat_statements`
+in `shared_preload_libraries` (restart). Running the schema again resets its alert thresholds and
+silences. Without them set `enabled = off` on these checks.
+
+    sudo -u postgres psql -d YOUR_DATABASE < dba_schema.v3.sql
+
+Test as the service user. `--once` runs each check once and exits 1 if any fails or cannot be logged:
+
+    cd /
+    sudo -u postgres /opt/system_monitoring_next/system_monitoring_next.py -t     /etc/system_monitoring_next.cfg
+    sudo -u postgres /opt/system_monitoring_next/system_monitoring_next.py --once /etc/system_monitoring_next.cfg
+
+Start now and at boot (from the checkout again):
+
+    cp system_monitoring_next.service /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable --now system_monitoring_next
+
+Rocky / RHEL with SELinux, before starting: `restorecon -R /opt/system_monitoring_next
+/etc/systemd/system/system_monitoring_next.service`. The `psi` check has no rows there unless the
+kernel is booted with `psi=1`: `grubby --update-kernel=ALL --args="psi=1"` and reboot.
+
+Check:
+
+    systemctl status system_monitoring_next
+    journalctl -u system_monitoring_next -n 50 --no-pager
+    /opt/system_monitoring_next/sysmon_export.py -l /data/system_monitoring_next_logs list
+
+It does not need PostgreSQL or the log filesystem to be up first: it retries. Config changes need
+`systemctl restart system_monitoring_next`; SIGHUP is ignored. One daemon per logdir and per
+cluster logdir (enforced). Without systemd: `system_monitoring_next.py -d CONFIG` detaches.
+
+If the unit keeps restarting with status 2, the journal says why. Usually:
+
+| message | fix |
+|---|---|
+| another daemon is already running | one was started by hand: `pgrep -af system_monitoring_next.py`, then stop it |
+| logdir ... does not exist | create or mount it |
+| cannot lock ... | `.lock` belongs to another user: fix the owner of the log directory |
+| cannot read the config, or it is writable by others | owner and mode as above |
 
 ## What it guarantees, and how
 
